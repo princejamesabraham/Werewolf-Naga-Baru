@@ -762,11 +762,11 @@ const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math
 const ROLES={
  wolf:{n:'Werewolf',e:'🐺',d:'Tiap malam, bersama sesama werewolf, sepakati satu korban.'},
  seer:{n:'Seer',e:'🔮',d:'Tiap malam, periksa satu pemain: werewolf atau bukan.'},
- doc:{n:'Dokter',e:'🩺',d:'Tiap malam, lindungi satu orang. Boleh melindungi orang yang sama dua malam berturut-turut, termasuk dirimu sendiri. Jika berhasil menyelamatkan 3 korban terkaman werewolf secara berturut-turut, semua pemain yang sudah gugur bangkit kembali.'},
+ doc:{n:'Dokter',e:'🩺',d:'Tiap malam, lindungi satu orang. Boleh melindungi orang yang sama dua malam berturut-turut, termasuk dirimu sendiri. Jika berhasil menyelamatkan 3 korban terkaman werewolf secara berturut-turut dan sudah ada minimal 2 pemain yang gugur, semua pemain yang sudah gugur bangkit kembali.'},
  guard:{n:'Bodyguard',e:'🛡️',d:'Tiap malam, jaga satu pemain lain. Jika dia diserang werewolf, kamu yang gugur menggantikannya. Boleh dilewati.'},
  gate:{n:'Penjaga Gerbang',e:'🔒',d:'Tiap malam, kunci satu pemain: kemampuannya tidak berfungsi malam itu. Tidak boleh orang yang sama dua malam berturut-turut. Boleh dilewati.'},
  wseer:{n:'Werewolf Pengintai',e:'🐺',d:'Werewolf yang ikut memilih korban. Sekali per permainan, tebak peran satu pemain: jika benar, dia gugur malam itu juga.'},
- alpha:{n:'Alpha Werewolf',e:'👑',d:'Werewolf yang ikut memilih korban. Sekali, di malam pertama, ubah kartu satu pemain menjadi Werewolf atau Pengkhianat (mode ganda: pilih kartu ke-1 atau ke-2). Berlaku setelah malam pertama. Seer melihatmu sebagai Alpha Werewolf.'},
+ alpha:{n:'Alpha Werewolf',e:'👑',d:'Werewolf yang ikut memilih korban, kecuali di malam pertama (tidak bisa membunuh). Sekali, di malam pertama, ubah kartu satu pemain menjadi Werewolf atau Pengkhianat (mode ganda: pilih kartu ke-1 atau ke-2). Berlaku setelah malam pertama. Seer melihatmu sebagai Alpha Werewolf.'},
  traitor:{n:'Pengkhianat',e:'🐍',d:'Warga yang berpihak pada werewolf. Kamu tahu siapa werewolf, dan werewolf juga tahu siapa kamu. Seer melihatmu sebagai bukan werewolf. Menang bersama werewolf.'},
  hush:{n:'Pembisik',e:'🤫',d:'Tiap malam, bungkam satu pemain: besok dia tidak boleh bicara dan tidak ikut memilih. Boleh dilewati.'},
  judge:{n:'Hakim',e:'⚖️',d:'Sekali per permainan, batalkan hasil voting sehingga pemain yang akan dieksekusi selamat.'},
@@ -1052,9 +1052,12 @@ async function night(){
     }else if(isW(p)&&nb){
       await pick({r:p.role,t:'Malam hari',h:'😇 Malaikat gugur dibunuh werewolf. Malam ini kemampuan membunuh werewolf hilang. Ketuk salah satu nama agar tidak ketahuan, lalu konfirmasi.',c:al.filter(x=>!isW(x)),max:1,min:1});
     }else if(isW(p)){
+      const noKill=p.role==='alpha'&&G.day===1;
+      if(!noKill){
       const info=(wl.length?`Pilihan rekanmu: ${wl.map(([n,t])=>`${esc(n)} ➜ ${esc(t)}`).join(', ')}. `:'');
       const [id]=await pick({r:p.role,t:ROLES[p.role].n,h:`${info}Pilih korban malam ini${S.wolfSkip!==false?', atau lewati jika tidak ingin membunuh':''}. Jika pilihan werewolf berbeda, suara terbanyak menang${S.wolfSkip!==false?' (lewati juga dihitung sebagai satu suara)':''}.`,c:al.filter(x=>!isW(x)),max:1,min:1,skip:S.wolfSkip!==false?'Lewati (tidak membunuh)':undefined});
       wv.push(id===undefined?null:id);wl.push([p.name,id===undefined?'tidak membunuh':G.ps[id].name]);
+      }
       if(p.role==='wseer'&&!p.used){
         const [tg]=await pick({t:'Werewolf Pengintai',h:'Kemampuan sekali pakai: tebak peran satu pemain. Jika benar, dia gugur malam ini. Jika memilih lewati, kemampuan tetap tersimpan.',c:al.filter(x=>!isW(x)),max:1,min:1,skip:'Lewati (simpan kemampuan)'});
         if(tg!==undefined){
@@ -1067,7 +1070,7 @@ async function night(){
       if(p.role==='alpha'&&G.day===1&&!p.used){
         const cand=al.filter(x=>x!==p&&!isW(x)&&x.role!=='traitor');
         if(cand.length){
-          const [tg]=await pick({t:'Alpha Werewolf',h:'Kemampuan sekali pakai, hanya malam pertama: tunjuk satu pemain lalu ubah kartunya menjadi Werewolf atau Pengkhianat. Perubahan berlaku setelah malam pertama berakhir, dan dia baru diberi tahu di malam berikutnya. Boleh dilewati.',c:cand,max:1,min:1,skip:'Lewati (tidak mengubah)'});
+          const [tg]=await pick({t:'Alpha Werewolf',h:'Malam pertama Alpha Werewolf tidak bisa membunuh. Kemampuan sekali pakai, hanya malam pertama: tunjuk satu pemain lalu ubah kartunya menjadi Werewolf atau Pengkhianat. Perubahan berlaku setelah malam pertama berakhir, dan dia baru diberi tahu di malam berikutnya. Boleh dilewati.',c:cand,max:1,min:1,skip:'Lewati (tidak mengubah)'});
           if(tg!==undefined){
             const T=G.ps[tg];
             const to=await pickOpt(`Ubah ${esc(T.name)} menjadi apa?`,'Pilih kartu baru untuknya.','Konfirmasi',[{k:'wolf',l:`${ROLES.wolf.e} ${ROLES.wolf.n}`},{k:'traitor',l:`${ROLES.traitor.e} ${ROLES.traitor.n}`}]);
@@ -1075,10 +1078,10 @@ async function night(){
             if(T.r2)slot=+(await pickOpt(`Kartu mana milik ${esc(T.name)} yang diubah?`,'Dia punya dua kartu peran. Pilih salah satu: kartu yang kamu pilih akan diganti, kartu lainnya tetap.','Konfirmasi',[{k:'0',l:'Kartu pertama'},{k:'1',l:'Kartu kedua'}]));
             p.used=true;alphas.push([p.id,tg,to,slot]);
           }
-        }
-      }
+        }else await pick({r:p.role,t:'Malam hari',h:'👑 Malam pertama: Alpha Werewolf tidak bisa membunuh, dan tidak ada pemain yang bisa diubah. Ketuk salah satu nama agar tidak ketahuan, lalu konfirmasi.',c:al.filter(x=>!isW(x)),max:1,min:1});
+      }else if(noKill)await pick({r:p.role,t:'Malam hari',h:'👑 Malam pertama: Alpha Werewolf tidak bisa membunuh. Ketuk salah satu nama agar tidak ketahuan, lalu konfirmasi.',c:al.filter(x=>!isW(x)),max:1,min:1});
     }else if(p.role==='doc'){
-      const [id]=await pick({r:'doc',t:'Dokter',h:'Pilih siapa yang kamu lindungi malam ini. Boleh orang yang sama seperti malam sebelumnya.'+(G.docStreak?` Penyelamatan beruntun: ${G.docStreak}/3. Capai 3 untuk membangkitkan semua yang gugur.`:' Selamatkan 3 korban terkaman werewolf berturut-turut untuk membangkitkan semua yang gugur.'),c:al,max:1,min:1});
+      const [id]=await pick({r:'doc',t:'Dokter',h:'Pilih siapa yang kamu lindungi malam ini. Boleh orang yang sama seperti malam sebelumnya.'+(G.docStreak?` Penyelamatan beruntun: ${G.docStreak}/3. Capai 3 untuk membangkitkan semua yang gugur (berlaku jika sudah ada minimal 2 pemain gugur).`:' Selamatkan 3 korban terkaman werewolf berturut-turut untuk membangkitkan semua yang gugur (berlaku jika sudah ada minimal 2 pemain gugur).'),c:al,max:1,min:1});
       prot.push(id);protBy.push([p.id,id]);
     }else if(p.role==='seer'){
       const [id]=await pick({r:'seer',t:'Seer',h:'Pilih siapa yang ingin kamu periksa.',c:al.filter(x=>x!==p),max:1,min:1});
@@ -1132,8 +1135,8 @@ async function night(){
   G.mutes=mutes;
   G.pending=[...dead];G.log.push({d:G.day,t:'night',kill,victim,gd,eld,saved:protBy.filter(x=>x[1]===victim).map(x=>x[0]),heal,healBy,pois:[...pois],poisBy,dead:[...dead]});
   {const sv=kill!==null&&protBy.some(x=>x[1]===kill);
-   G.docStreak=sv?(G.docStreak||0)+1:0;
-   if(G.docStreak>=3&&(dead.size||G.ps.some(p=>!p.alive))){G.revive=true;G.docStreak=0}}
+   G.docStreak=sv?Math.min(3,(G.docStreak||0)+1):0;
+   if(G.docStreak>=3&&G.ps.filter(p=>!p.alive).length>=2){G.revive=true;G.docStreak=0}}
 }
 function witch(kill){return new Promise(res=>{setPriv(true);
   const vic=kill!==null?G.ps[kill]:null,cs=alive().filter(p=>!hasR(p,'witch'));
